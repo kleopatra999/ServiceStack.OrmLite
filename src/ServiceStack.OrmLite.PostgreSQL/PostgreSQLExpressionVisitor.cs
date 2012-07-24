@@ -97,19 +97,16 @@ namespace ServiceStack.OrmLite.PostgreSQL
 				return string.Format("{0} DESC", r);
 			case "As":
 				return string.Format("{0} As {1}", r, 
-					OrmLiteConfig.DialectProvider.GetQuotedColumnName( RemoveQuote( args[0].ToString() ) ) );
+					OrmLiteConfig.DialectProvider.GetQuotedColumnName(RemoveQuoteFromAlias(args[0].ToString())));
 			case "ToString":
 				return r.ToString();
-			default:
-				Console.WriteLine("******* Returning '{0}' for '{1}' *******", r, m.Method.Name);
-				
+			default:	
 				StringBuilder s2 = new StringBuilder();
 				foreach(Object e in args ){
 					s2.AppendFormat(",{0}", 
 					                OrmLiteConfig.DialectProvider.GetQuotedValue(e, e.GetType()) );
 				}
-				return string.Format("{0}({1}{2})",m.Method.Name,r, s2.ToString());
-				
+				return string.Format("{0}({1}{2})",m.Method.Name,r, s2.ToString());	
 			}
 			
         }
@@ -127,7 +124,6 @@ namespace ServiceStack.OrmLite.PostgreSQL
 				return string.Format("LIMIT {0}{1}", Rows.Value, offset);                   
 			}
 		}
-		
 		
 	}
 }

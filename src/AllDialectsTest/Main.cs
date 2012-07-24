@@ -297,15 +297,15 @@ namespace AllDialectsTest
 					expected = 2;
 					var rate=0;
 					ev.Where(rn => rn.Rate == rate).Update(rn => rn.Active);
-					var rows = dbCmd.Update(new Author() { Active = false }, ev);
+					var rows = dbCmd.UpdateOnly(new Author() { Active = false }, ev);
 					Console.WriteLine(ev.WhereExpression);
 					Console.WriteLine("Expected:{0}  Selected:{1}  {2}", expected, rows, expected == rows ? "OK" : "**************  FAILED ***************");
 
 					// insert values  only in Id, Name, Birthday, Rate and Active fields 
 					expected = 4;
 					ev.Insert(rn => new { rn.Id, rn.Name, rn.Birthday, rn.Active, rn.Rate });
-					dbCmd.Insert(new Author() { Active = false, Rate = 0, Name = "Victor Grozny", Birthday = DateTime.Today.AddYears(-18) }, ev);
-					dbCmd.Insert(new Author() { Active = false, Rate = 0, Name = "Ivan Chorny", Birthday = DateTime.Today.AddYears(-19) }, ev);
+					dbCmd.InsertOnly(new Author() { Active = false, Rate = 0, Name = "Victor Grozny", Birthday = DateTime.Today.AddYears(-18) }, ev);
+					dbCmd.InsertOnly(new Author() { Active = false, Rate = 0, Name = "Ivan Chorny", Birthday = DateTime.Today.AddYears(-19) }, ev);
 					ev.Where(rn => !rn.Active);
 					result = dbCmd.Select(ev);
 					Console.WriteLine(ev.WhereExpression);
@@ -314,7 +314,7 @@ namespace AllDialectsTest
 					//update comment for City == null 
 					expected = 2;
 					ev.Where(rn => rn.City == null).Update(rn => rn.Comments);
-					rows = dbCmd.Update(new Author() { Comments = "No comments" }, ev);
+					rows = dbCmd.UpdateOnly(new Author() { Comments = "No comments" }, ev);
 					Console.WriteLine("Expected:{0}  Selected:{1}  {2}", expected, rows, expected == rows ? "OK" : "**************  FAILED ***************");
 
 					// delete where City is null 
@@ -350,7 +350,13 @@ namespace AllDialectsTest
 					result = dbCmd.Select(ev);
 					author = result.FirstOrDefault();
 					Console.WriteLine("Expected:{0}  Selected:{1}  {2}", "Claudia Espinel".ToUpper(), author.Name, "Claudia Espinel".ToUpper() == author.Name ? "OK" : "**************  FAILED ***************");
-
+					
+					ev.Select(rn => new { at = Sql.As(rn.Name.ToUpper(), rn.Name), rn.City });
+					Console.WriteLine(ev.SelectExpression);
+					result = dbCmd.Select(ev);
+					author = result.FirstOrDefault();
+					Console.WriteLine("Expected:{0}  Selected:{1}  {2}", "Claudia Espinel".ToUpper(), author.Name, "Claudia Espinel".ToUpper() == author.Name ? "OK" : "**************  FAILED ***************");
+					
 					//paging :
 					ev.Limit(0, 4);// first page, page size=4;
 					result = dbCmd.Select(ev);
@@ -381,6 +387,15 @@ namespace AllDialectsTest
 					                  result[0].Birthday,
 					                  expectedResult == result[0].Birthday ? "OK" : "**************  FAILED ***************");
 					
+					ev.Select(r=> Sql.As(Sql.Max(r.Birthday), r.Birthday));
+					result = dbCmd.Select(ev);
+					expectedResult  = authors.Max(r=>r.Birthday);
+					Console.WriteLine("Expected:{0} Selected {1} {2}",expectedResult, 
+					                  result[0].Birthday,
+					                  expectedResult == result[0].Birthday ? "OK" : "**************  FAILED ***************");
+					
+					
+					
 					var r1 = dbCmd.FirstOrDefault(ev);
 					Console.WriteLine("FOD: Expected:{0} Selected {1} {2}",expectedResult, 
 					                  r1.Birthday,
@@ -400,11 +415,30 @@ namespace AllDialectsTest
 					                  expectedResult == result[0].Birthday? "OK" : "**************  FAILED ***************");
 					
 					
+					
+					ev.Select(r=> Sql.As( Sql.Min(r.Birthday), r.Birthday));
+					result = dbCmd.Select(ev);
+					expectedResult  = authors.Min(r=>r.Birthday);
+					Console.WriteLine("Expected:{0} Selected {1} {2}",expectedResult, 
+					                  result[0].Birthday,
+					                  expectedResult == result[0].Birthday? "OK" : "**************  FAILED ***************");
+					
+					
 					ev.Select(r=>new{r.City,  MaxResult=Sql.As( Sql.Min(r.Birthday), "Birthday") })
 							.GroupBy(r=>r.City)
 							.OrderBy(r=>r.City);
 					result = dbCmd.Select(ev);
 					var expectedStringResult= "Berlin";
+					Console.WriteLine("Expected:{0} Selected {1} {2}",expectedResult, 
+					                  result[0].City,
+					                  expectedStringResult == result[0].City ? "OK" : "**************  FAILED ***************");
+					
+					
+					ev.Select(r=>new{r.City,  MaxResult=Sql.As( Sql.Min(r.Birthday), r.Birthday) })
+							.GroupBy(r=>r.City)
+							.OrderBy(r=>r.City);
+					result = dbCmd.Select(ev);
+					expectedStringResult= "Berlin";
 					Console.WriteLine("Expected:{0} Selected {1} {2}",expectedResult, 
 					                  result[0].City,
 					                  expectedStringResult == result[0].City ? "OK" : "**************  FAILED ***************");
@@ -507,12 +541,37 @@ namespace AllDialectsTest
 					Console.WriteLine("GetScalar long: Expected:{0} Selected {1} {2}",expectedCount, 
 					                  r7,
 					                  expectedCount == r7 ? "OK" : "**************  FAILED ***************");
-							
+					
+
+                    // more updates.....
+                    Console.WriteLine("more updates.....................");
+                     ev.Update();// all fields will be updated
+                    // select and update 
+                    expected=1;
+                    var rr= dbCmd.FirstOrDefault<Author>(rn => rn.Name=="Luis garzon");
+                    rr.City="Madrid";
+                    rr.Comments="Updated";
+                    ev.Where(r=>r.Id==rr.Id); // if omit,  then all records will be updated 
+                    rows=dbCmd.UpdateOnly(rr,ev); // == dbCmd.Update(rr) but it returns void
+                    Console.WriteLine("Expected:{0}  Selected:{1}  {2}", expected, rows, expected == rows ? "OK" : "**************  FAILED ***************");
+
+                    expected=0;
+                    ev.Where(r=>r.City=="Ciudad Gotica");
+                    rows=dbCmd.UpdateOnly(rr, ev);
+                    Console.WriteLine("Expected:{0}  Selected:{1}  {2}", expected, rows, expected == rows ? "OK" : "**************  FAILED ***************");
+
+                    expected= dbCmd.Select<Author>(x=>x.City=="Madrid").Count;
+                    author = new Author(){Active=false};
+                    rows=dbCmd.UpdateOnly(author, x=>x.Active,  x=>x.City=="Madrid");
+                    Console.WriteLine("Expected:{0}  Updated:{1}  {2}", expected, rows, expected == rows ? "OK" : "**************  FAILED ***************");
+
+                    expected= dbCmd.Select<Author>(x=>x.Active==false).Count;
+                    rows = dbCmd.Delete<Author>( x=>x.Active==false);
+                    Console.WriteLine("Expected:{0}  Deleted:{1}  {2}", expected, rows, expected == rows ? "OK" : "**************  FAILED ***************");
+
 					DateTime t3= DateTime.Now;
 					Console.WriteLine("Expressions test in: {0}", t3 - t2);
 					Console.WriteLine("All test in :        {0}", t3 - t1);
-					
-					
 
 				}
 				catch (Exception e)
@@ -525,6 +584,5 @@ namespace AllDialectsTest
 			Console.ReadLine();
 			PaintMenu();
 		}
-
 	}
 }

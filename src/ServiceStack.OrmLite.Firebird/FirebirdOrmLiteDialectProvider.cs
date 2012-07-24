@@ -14,17 +14,27 @@ namespace ServiceStack.OrmLite.Firebird
 	public class FirebirdOrmLiteDialectProvider : OrmLiteDialectProviderBase<FirebirdOrmLiteDialectProvider>
 	{
 		private readonly List<string> RESERVED = new List<string>(new[] {
-			"USER","ORDER","PASSWORD", "ACTIVE","LEFT","DOUBLE", "FLOAT", "DECIMAL","STRING", "DATE","DATETIME", "TYPE"
+			"USER","ORDER","PASSWORD", "ACTIVE","LEFT","DOUBLE", "FLOAT", "DECIMAL","STRING", "DATE","DATETIME", "TYPE","TIMESTAMP"
 		});
 		
 		public static FirebirdOrmLiteDialectProvider Instance = new FirebirdOrmLiteDialectProvider();
 		
 		internal long LastInsertId { get; set; }
-		
+		protected bool CompactGuid;
+
+		internal const string DefaultGuidDefinition = "VARCHAR(37)";
+		internal const string CompactGuidDefinition = "CHAR(16) CHARACTER SET OCTETS";
+
 		public FirebirdOrmLiteDialectProvider()
+			: this(false)
 		{
+		}
+
+		public FirebirdOrmLiteDialectProvider(bool compactGuid)
+		{
+			CompactGuid = compactGuid;
 			base.BoolColumnDefinition = base.IntColumnDefinition;
-			base.GuidColumnDefinition = "VARCHAR(37)";
+			base.GuidColumnDefinition = CompactGuid ? CompactGuidDefinition : DefaultGuidDefinition;
 			base.AutoIncrementDefinition= string.Empty;
 			base.DateTimeColumnDefinition="TIMESTAMP";
 			base.TimeColumnDefinition = "TIME";
@@ -51,7 +61,6 @@ namespace ServiceStack.OrmLite.Firebird
 			return LastInsertId;			
 		}
 		
-		
 		public override object ConvertDbValue(object value, Type type)
 		{
 			if (value == null || value is DBNull) return null;
@@ -64,7 +73,20 @@ namespace ServiceStack.OrmLite.Firebird
 			
 			if(type == typeof(System.Double))
 				return double.Parse(value.ToString());
-						
+
+			if (type == typeof(Guid) && BitConverter.IsLittleEndian) // TODO: check big endian
+			{
+				if (CompactGuid)
+				{
+					byte[] raw = ((Guid)value).ToByteArray();
+					return new Guid(System.Net.IPAddress.NetworkToHostOrder(BitConverter.ToInt32(raw, 0)),
+						System.Net.IPAddress.NetworkToHostOrder(BitConverter.ToInt16(raw, 4)),
+						System.Net.IPAddress.NetworkToHostOrder(BitConverter.ToInt16(raw, 6)),
+						raw[8], raw[9], raw[10], raw[11], raw[12], raw[13], raw[14], raw[15]);
+				}
+				return new Guid(value.ToString());
+			}
+
 			try
 			{
 				return base.ConvertDbValue(value, type);
@@ -82,8 +104,10 @@ namespace ServiceStack.OrmLite.Firebird
 
 			if (fieldType == typeof(Guid))
 			{
-				var guidValue = (Guid)value;
-				return string.Format("CAST('{0}' AS {1})", guidValue, GuidColumnDefinition);  // TODO : check this !!!
+				if (CompactGuid)
+					return "X'" + ((Guid)value).ToString("N") + "'";
+				else
+					return string.Format("CAST('{0}' AS {1})", (Guid)value, DefaultGuidDefinition);  // TODO : check this !!!
 			}
 			if (fieldType == typeof(DateTime) || fieldType == typeof( DateTime?) )
 			{
@@ -175,6 +199,8 @@ namespace ServiceStack.OrmLite.Firebird
 						ReflectionUtils.SetProperty(objWithProperties, pi, Convert.ToInt16(result));	
 					else if(pi.PropertyType == typeof(Int32))
 						ReflectionUtils.SetProperty(objWithProperties, pi, Convert.ToInt32(result));	
+					else if(pi.PropertyType == typeof(Guid))
+						ReflectionUtils.SetProperty(objWithProperties, pi, result);
 					else
 						ReflectionUtils.SetProperty(objWithProperties, pi, Convert.ToInt64(result));
 				}
@@ -305,9 +331,9 @@ namespace ServiceStack.OrmLite.Firebird
 
                 sbColumns.Append(columnDefinition);
 
-                if (fieldDef.ReferencesType == null) continue;
+                if (fieldDef.ForeignKey == null) continue;
 
-                var refModelDef = GetModel(fieldDef.ReferencesType);
+                var refModelDef = GetModel(fieldDef.ForeignKey.ReferenceType);
 				
 				var modelName= modelDef.IsInSchema
 					? modelDef.Schema + "_" + NamingStrategy.GetTableName(modelDef.ModelName)
@@ -468,8 +494,8 @@ namespace ServiceStack.OrmLite.Firebird
 						if (fieldDef.IsComputed) continue;
 						try
 						{
-							if (fieldDef.ReferencesType !=null
-								&& GetModel(fieldDef.ReferencesType).ModelName == modelDef.ModelName)
+							if (fieldDef.ForeignKey !=null
+								&& GetModel(fieldDef.ForeignKey.ReferenceType).ModelName == modelDef.ModelName)
 							{
 								if (filter.Length > 0) filter.Append(" AND ");
 								filter.AppendFormat("{0} = {1}", GetQuotedColumnName(fieldDef.FieldName),
@@ -668,6 +694,12 @@ namespace ServiceStack.OrmLite.Firebird
 				NamingStrategy.GetTableName(modelDef.ModelName)));
         }
        	
+        public override string GetQuotedTableName(string tableName)
+        {
+            return Quote(NamingStrategy.GetTableName(tableName));
+        }
+
+
 		public override string GetQuotedColumnName(string fieldName)
 		{
 			return Quote(NamingStrategy.GetColumnName(fieldName));

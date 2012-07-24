@@ -63,10 +63,9 @@ namespace ServiceStack.OrmLite
 	    public static string GetColumnNames(this ModelDefinition modelDef)
 	    {
             var sqlColumns = new StringBuilder();
-	        modelDef.FieldDefinitions.ForEach(x =>
-	                                          sqlColumns.AppendFormat("{0}{1} ", sqlColumns.Length > 0 ? "," : "",
-	                                                                  OrmLiteConfig.DialectProvider.GetQuotedColumnName(
-	                                                                      x.FieldName)));
+	        modelDef.FieldDefinitions.ForEach(x => 
+                sqlColumns.AppendFormat("{0}{1} ", sqlColumns.Length > 0 ? "," : "",
+                  OrmLiteConfig.DialectProvider.GetQuotedColumnName(x.FieldName)));
 
 	        return sqlColumns.ToString();
 	    }
@@ -80,6 +79,11 @@ namespace ServiceStack.OrmLite
 				sql.AppendFormat("{0}".SqlFormat(idValue));
 			}
 			return sql.Length == 0 ? null : sql.ToString();
+		}
+
+		public static string Params(this string sqlText, params object[] sqlParams)
+		{
+		    return SqlFormat(sqlText, sqlParams);
 		}
 
 		public static string SqlFormat(this string sqlText, params object[] sqlParams)

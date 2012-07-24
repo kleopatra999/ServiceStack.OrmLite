@@ -93,6 +93,12 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Expressions\ReadConnectionExtensions.cs" />
+    <Compile Include="Expressions\WriteConnectionExtensions.cs" />
+    <Compile Include="ForeignKeyAttribute.cs" />
+    <Compile Include="OrmLiteReadConnectionExtensions.cs" />
+    <Compile Include="OrmLiteTransaction.cs" />
+    <Compile Include="OrmLiteWriteConnectionExtensions.cs" />
     <Compile Include="DbTypes.cs" />
     <Compile Include="INamingStrategy.cs" />
     <Compile Include="OrmLiteConfigExtensions.cs">
@@ -101,7 +107,6 @@
     <Compile Include="OrmLiteNamingStrategyBase.cs" />
     <Compile Include="PropertyInvoker.cs" />
     <Compile Include="FieldDefinition.cs" />
-    <Compile Include="IDbConnectionFactory.cs" />
     <Compile Include="IPropertyInvoker.cs" />
     <Compile Include="ModelDefinition.cs" />
     <Compile Include="OrmLiteConfig.cs" />
@@ -110,7 +115,6 @@
     <Compile Include="OrmLitePersistenceProvider.cs" />
     <Compile Include="IOrmLiteDialectProvider.cs" />
     <Compile Include="OrmLiteDialectProviderBase.cs" />
-    <Compile Include="OrmLiteLinqExtensions.cs" />
     <Compile Include="OrmLiteWriteExtensions.cs" />
     <Compile Include="OrmLiteReadExtensions.cs" />
     <Compile Include="OrmLiteUtilExtensions.cs" />
@@ -123,7 +127,6 @@
     <Compile Include="IgnoreAttribute.cs" />
     <Compile Include="PrimaryKeyAttribute.cs" />
     <Compile Include="SequenceAttribute.cs" />
-    <Compile Include="OrmLiteProcedureExtensions.cs" />
     <Compile Include="DecimalLengthAttribute.cs" />
     <Compile Include="Expressions\ReadExtensions.cs" />
     <Compile Include="Expressions\SqlExpressionVisitor.cs" />
@@ -150,6 +153,7 @@
   <ItemGroup>
     <None Include="OrmLiteApi.cd" />
   </ItemGroup>
+  <ItemGroup />
   <Import Project="$(MSBuildBinPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
        Other similar extension points exist, see Microsoft.Common.targets.

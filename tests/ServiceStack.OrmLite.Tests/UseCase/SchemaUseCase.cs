@@ -30,12 +30,11 @@ namespace ServiceStack.OrmLite.Tests.UseCase
             OrmLiteConfig.DialectProvider = SqliteOrmLiteDialectProvider.Instance;
 
             using (IDbConnection db = ":memory:".OpenDbConnection())
-            using (IDbCommand dbCmd = db.CreateCommand())
             {
-                dbCmd.CreateTable<User>(true);
+                db.CreateTable<User>(true);
 
                 var tables =
-                    dbCmd.GetFirstColumn<string>
+                    db.GetFirstColumn<string>
                         (@"SELECT name FROM sqlite_master WHERE type='table';");
 
                 //sqlite dialect should just concatenate the schema and table name to create a unique table name
@@ -43,30 +42,26 @@ namespace ServiceStack.OrmLite.Tests.UseCase
             }
         }
 
-        private void CreateSchemaIfNotExists(IDbCommand dbCmd)
+        private void CreateSchemaIfNotExists(IDbConnection db)
         {
             //in Sql2008, CREATE SCHEMA must be the first statement in a batch
             const string createSchemaSQL = @"IF NOT EXISTS (SELECT * FROM sys.schemas WHERE name = 'Security')
                                         BEGIN
                                         EXEC( 'CREATE SCHEMA Security' );
                                         END";
-            dbCmd.CommandText = createSchemaSQL;
-            dbCmd.ExecuteNonQuery();
+            db.ExecuteSql(createSchemaSQL);
         }
 
         [Test]
         public void Can_Create_Tables_With_Schema_in_SqlServer()
         {
-            var dbFactory = new OrmLiteConnectionFactory(
-                @"Data Source=.\SQLEXPRESS;AttachDbFilename=|DataDirectory|\App_Data\Database1.mdf;Integrated Security=True;User Instance=True",
-                SqlServerOrmLiteDialectProvider.Instance);
+            var dbFactory = OrmLiteTestBase.CreateSqlServerDbFactory();
             using (IDbConnection db = dbFactory.OpenDbConnection())
-            using (IDbCommand dbCmd = db.CreateCommand())
             {
-                CreateSchemaIfNotExists(dbCmd);
-                dbCmd.CreateTable<User>(true);
+                CreateSchemaIfNotExists(db);
+                db.CreateTable<User>(true);
 
-                var tables = dbCmd.GetFirstColumn<string>
+                var tables = db.GetFirstColumn<string>
                     (@"SELECT '['+SCHEMA_NAME(schema_id)+'].['+name+']' AS SchemaTable FROM sys.tables");
 
                 //sql server dialect should create the table in the schema
@@ -77,34 +72,31 @@ namespace ServiceStack.OrmLite.Tests.UseCase
         [Test]
         public void Can_Perform_CRUD_Operations_On_Table_With_Schema()
         {
-            var dbFactory = new OrmLiteConnectionFactory(
-                @"Data Source=.\SQLEXPRESS;AttachDbFilename=|DataDirectory|\App_Data\Database1.mdf;Integrated Security=True;User Instance=True",
-                SqlServerOrmLiteDialectProvider.Instance);
+            var dbFactory = OrmLiteTestBase.CreateSqlServerDbFactory();
             using (IDbConnection db = dbFactory.OpenDbConnection())
-            using (IDbCommand dbCmd = db.CreateCommand())
             {
-                CreateSchemaIfNotExists(dbCmd);
-                dbCmd.CreateTable<User>(true);
+                CreateSchemaIfNotExists(db);
+                db.CreateTable<User>(true);
 
-				dbCmd.Insert(new User { Id = 1, Name = "A", CreatedDate = DateTime.Now });
-                dbCmd.Insert(new User { Id = 2, Name = "B", CreatedDate = DateTime.Now });
-                dbCmd.Insert(new User { Id = 3, Name = "B", CreatedDate = DateTime.Now });
+				db.Insert(new User { Id = 1, Name = "A", CreatedDate = DateTime.Now });
+                db.Insert(new User { Id = 2, Name = "B", CreatedDate = DateTime.Now });
+                db.Insert(new User { Id = 3, Name = "B", CreatedDate = DateTime.Now });
 
-                var lastInsertId = dbCmd.GetLastInsertId();
+                var lastInsertId = db.GetLastInsertId();
                 Assert.That(lastInsertId, Is.GreaterThan(0));
 
-                var rowsB = dbCmd.Select<User>("Name = {0}", "B");
+                var rowsB = db.Select<User>("Name = {0}", "B");
                 Assert.That(rowsB, Has.Count.EqualTo(2));
 
                 var rowIds = rowsB.ConvertAll(x => x.Id);
                 Assert.That(rowIds, Is.EquivalentTo(new List<long> { 2, 3 }));
 
-                rowsB.ForEach(x => dbCmd.Delete(x));
+                rowsB.ForEach(x => db.Delete(x));
 
-                rowsB = dbCmd.Select<User>("Name = {0}", "B");
+                rowsB = db.Select<User>("Name = {0}", "B");
                 Assert.That(rowsB, Has.Count.EqualTo(0));
 
-                var rowsLeft = dbCmd.Select<User>();
+                var rowsLeft = db.Select<User>();
                 Assert.That(rowsLeft, Has.Count.EqualTo(1));
 
                 Assert.That(rowsLeft[0].Name, Is.EqualTo("A"));
